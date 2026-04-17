@@ -406,7 +406,7 @@ placementhub/
 | Role | Permissions |
 |------|-------------|
 | **Student** | View own profile/vault/applications; view eligible drives; apply; view own status only |
-| **Placement Admin** | Post/edit/delete drives; view all applicants; update status; access analytics; manage students |
+| **Placement Admin** | Post/edit/delete drives; view allb applicants; update status; access analytics; manage students |
 | **Company HR** | View eligible applicants for own drives only; download data; submit round results |
 | **Super Admin** | All permissions; manage placement admins; college-level config |
 

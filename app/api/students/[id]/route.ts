@@ -5,19 +5,20 @@ import { requireAuth, requireAdmin } from '@/lib/utils/auth';
 import { successResponse, errorResponse, notFoundResponse } from '@/lib/utils/response';
 
 // GET /api/students/[id] - Get student by ID
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const currentUser = await requireAuth(request);
     await connectDB();
 
-    const student = await Student.findById(params.id).lean();
+    const { id } = await params;
+    const student = await Student.findById(id).lean();
 
     if (!student) {
       return notFoundResponse('Student not found');
     }
 
     // Students can only view their own profile, admins can view any
-    if (currentUser._id.toString() !== params.id) {
+    if (currentUser._id.toString() !== id) {
       await requireAdmin(request);
     }
 
@@ -28,29 +29,36 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/students/[id] - Update student
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const currentUser = await requireAuth(request);
     await connectDB();
 
-    const student = await Student.findById(params.id);
+    const { id } = await params;
+    const student = await Student.findById(id);
 
     if (!student) {
       return notFoundResponse('Student not found');
     }
 
     // Students can only update their own profile
-    if (currentUser._id.toString() !== params.id) {
+    if (currentUser._id.toString() !== id) {
       return errorResponse('Forbidden', 403);
     }
 
     const body = await request.json();
-    const { phone, dateOfBirth, gender } = body;
+    const { regNo, department, cgpa, graduationYear, degree, phone, dateOfBirth, gender, activeBacklogs } = body;
 
-    // Students can only update limited fields
+    // Allow updating all fields during profile setup
+    if (regNo) student.regNo = regNo;
+    if (department) student.department = department;
+    if (cgpa !== undefined) student.cgpa = cgpa;
+    if (graduationYear) student.graduationYear = graduationYear;
+    if (degree) student.degree = degree;
     if (phone) student.phone = phone;
     if (dateOfBirth) student.dateOfBirth = dateOfBirth;
     if (gender) student.gender = gender;
+    if (activeBacklogs !== undefined) student.activeBacklogs = activeBacklogs;
 
     await student.save();
 
@@ -61,12 +69,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/students/[id] - Delete student (Admin only)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin(request);
     await connectDB();
 
-    const student = await Student.findByIdAndDelete(params.id);
+    const { id } = await params;
+    const student = await Student.findByIdAndDelete(id);
 
     if (!student) {
       return notFoundResponse('Student not found');

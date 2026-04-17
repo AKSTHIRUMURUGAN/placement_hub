@@ -43,11 +43,9 @@ const StudentSchema = new Schema<IStudent>(
   { timestamps: true }
 );
 
-// Indexes for efficient queries
+// Indexes for efficient queries (removed duplicate indexes)
 StudentSchema.index({ department: 1, cgpa: -1 });
 StudentSchema.index({ graduationYear: 1 });
-StudentSchema.index({ email: 1 });
-StudentSchema.index({ regNo: 1 });
 
 const Student: Model<IStudent> = mongoose.models.Student || mongoose.model<IStudent>('Student', StudentSchema);
 

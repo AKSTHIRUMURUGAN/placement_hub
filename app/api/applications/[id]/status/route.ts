@@ -9,9 +9,10 @@ import { successResponse, errorResponse, notFoundResponse } from '@/lib/utils/re
 import { sendStatusChangeEmail } from '@/lib/notifications/email';
 
 // PUT /api/applications/[id]/status - Update application status (Admin only)
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdmin();
+    const { id } = await params;
+    await requireAdmin(request);
     await connectDB();
 
     const body = await request.json();
@@ -26,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return errorResponse('Invalid status', 400);
     }
 
-    const application = await Application.findById(params.id);
+    const application = await Application.findById(id);
 
     if (!application) {
       return notFoundResponse('Application not found');

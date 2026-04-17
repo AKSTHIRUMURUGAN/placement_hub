@@ -1,53 +1,45 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
-// Public routes that don't require authentication
-const publicRoutes = ['/sign-in', '/sign-up', '/'];
-
-// API routes that don't require authentication
-const publicApiRoutes = ['/api/health'];
+import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Allow public routes
-  if (publicRoutes.includes(pathname)) {
-    return NextResponse.next();
+  
+  // Get auth token from cookie
+  const authToken = request.cookies.get('authToken')?.value;
+  
+  // Define protected routes
+  const protectedRoutes = [
+    '/dashboard',
+    '/profile',
+    '/vault',
+    '/drives',
+    '/applications',
+    '/notifications',
+    '/admin',
+    '/company'
+  ];
+  
+  // Check if the current path is protected
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  
+  // If accessing a protected route without auth token
+  if (isProtectedRoute && !authToken) {
+    const signInUrl = new URL('/sign-in', request.url);
+    signInUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(signInUrl);
   }
-
-  // Allow public API routes
-  if (publicApiRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
-
-  // For API routes, check for Authorization header
-  if (pathname.startsWith('/api/')) {
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized - No token provided' },
-        { status: 401 }
-      );
-    }
-
-    // Token verification happens in individual route handlers
-    return NextResponse.next();
-  }
-
-  // For page routes, you can add additional checks here
+  
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

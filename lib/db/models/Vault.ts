@@ -126,8 +126,7 @@ const VaultSchema = new Schema<IVault>(
   { timestamps: true }
 );
 
-// Index for fast student lookup
-VaultSchema.index({ studentId: 1 });
+// Note: studentId already has unique: true, so no need for additional index
 
 const Vault: Model<IVault> = mongoose.models.Vault || mongoose.model<IVault>('Vault', VaultSchema);
 

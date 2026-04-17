@@ -38,7 +38,7 @@ const CompanySchema = new Schema<ICompany>(
 );
 
 CompanySchema.index({ name: 'text' });
-CompanySchema.index({ hrEmail: 1 });
+// Note: hrEmail already has unique: true, so no need for additional index
 
 const Company: Model<ICompany> = mongoose.models.Company || mongoose.model<ICompany>('Company', CompanySchema);
 

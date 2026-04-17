@@ -6,12 +6,16 @@ import { requireAuth } from '@/lib/utils/auth';
 import { successResponse, errorResponse, notFoundResponse } from '@/lib/utils/response';
 
 // GET /api/applications/[id] - Get application details
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const currentUser = await requireAuth();
+    const { id } = await params;
+    const currentUser = await requireAuth(request);
     await connectDB();
 
-    const application = await Application.findById(params.id).populate('driveId').lean();
+    const application = await Application.findById(id).populate('driveId').lean();
 
     if (!application) {
       return notFoundResponse('Application not found');
@@ -29,12 +33,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/applications/[id]/withdraw - Withdraw application
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const currentUser = await requireAuth();
+    const { id } = await params;
+    const currentUser = await requireAuth(request);
     await connectDB();
 
-    const application = await Application.findById(params.id);
+    const application = await Application.findById(id);
 
     if (!application) {
       return notFoundResponse('Application not found');

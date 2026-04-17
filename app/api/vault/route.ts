@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     // Create vault if doesn't exist
     if (!vault) {
-      vault = await Vault.create({
+      const newVault = await Vault.create({
         studentId: currentUser._id,
         resumes: [],
         certificates: [],
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         extraFields: {},
         completenessScore: 0,
       });
+      vault = newVault.toObject() as any;
     }
 
     return successResponse(vault);

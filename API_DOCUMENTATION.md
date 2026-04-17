@@ -651,6 +651,207 @@ PUT /api/notifications/read-all
 
 ---
 
+### Placements (Offers)
+
+#### Get All Placements (Admin Only)
+```http
+GET /api/placements?page=1&limit=20&year=2025&department=CSE&status=accepted
+```
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20)
+- `year` (optional): Filter by graduation year
+- `department` (optional): Filter by department
+- `status` (optional): Filter by status (accepted | pending)
+- `search` (optional): Search by name, email, regNo, or company
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "_id": "...",
+        "studentId": {
+          "name": "John Doe",
+          "email": "john@example.com",
+          "regNo": "2021CS001",
+          "department": "CSE",
+          "cgpa": 8.5
+        },
+        "companyName": "Google",
+        "role": "Software Engineer",
+        "ctc": 2500000,
+        "offerDate": "2024-05-01",
+        "accepted": true,
+        "acceptedAt": "2024-05-02"
+      }
+    ],
+    "pagination": {...}
+  }
+}
+```
+
+---
+
+#### Create Placement (Admin Only)
+```http
+POST /api/placements
+```
+
+**Body:**
+```json
+{
+  "studentId": "...",
+  "driveId": "...",
+  "applicationId": "...",
+  "companyName": "Google",
+  "role": "Software Engineer",
+  "ctc": 2500000,
+  "joiningDate": "2024-07-01",
+  "offerLetterUrl": "https://...",
+  "offerDate": "2024-05-01"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Placement offer created successfully",
+  "data": {
+    "offer": {...}
+  }
+}
+```
+
+---
+
+#### Get Placement Details
+```http
+GET /api/placements/:id
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "offer": {
+      "_id": "...",
+      "studentId": {...},
+      "driveId": {...},
+      "companyName": "Google",
+      "role": "Software Engineer",
+      "ctc": 2500000,
+      "offerDate": "2024-05-01",
+      "accepted": true
+    }
+  }
+}
+```
+
+---
+
+#### Update Placement (Admin Only)
+```http
+PUT /api/placements/:id
+```
+
+**Body:**
+```json
+{
+  "ctc": 2600000,
+  "joiningDate": "2024-08-01"
+}
+```
+
+---
+
+#### Delete Placement (Admin Only)
+```http
+DELETE /api/placements/:id
+```
+
+---
+
+#### Accept Offer (Student)
+```http
+POST /api/placements/:id/accept
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Offer accepted successfully",
+  "data": {
+    "offer": {...}
+  }
+}
+```
+
+---
+
+#### Reject Offer (Student)
+```http
+POST /api/placements/:id/reject
+```
+
+**Body:**
+```json
+{
+  "reason": "Pursuing higher studies"
+}
+```
+
+---
+
+#### Get Placement Statistics (Admin Only)
+```http
+GET /api/placements/stats?year=2025
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "overview": {
+      "totalStudents": 500,
+      "placedStudents": 320,
+      "unplacedStudents": 180,
+      "placementRate": 64.0,
+      "pendingOffers": 15,
+      "avgCtc": 1200000,
+      "maxCtc": 5000000,
+      "minCtc": 400000
+    },
+    "departmentStats": [
+      {
+        "department": "CSE",
+        "placed": 150,
+        "total": 200,
+        "placementRate": "75.00",
+        "avgCtc": 1500000,
+        "maxCtc": 5000000
+      }
+    ],
+    "topCompanies": [
+      {
+        "company": "Google",
+        "placements": 25,
+        "avgCtc": 2500000
+      }
+    ]
+  }
+}
+```
+
+---
+
 ### Analytics (Admin Only)
 
 #### Get Dashboard Stats

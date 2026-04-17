@@ -5,12 +5,13 @@ import { requireAuth } from '@/lib/utils/auth';
 import { successResponse, errorResponse, notFoundResponse } from '@/lib/utils/response';
 
 // PUT /api/notifications/[id]/read - Mark notification as read
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const currentUser = await requireAuth();
+    const { id } = await params;
+    const currentUser = await requireAuth(request);
     await connectDB();
 
-    const notification = await Notification.findById(params.id);
+    const notification = await Notification.findById(id);
 
     if (!notification) {
       return notFoundResponse('Notification not found');

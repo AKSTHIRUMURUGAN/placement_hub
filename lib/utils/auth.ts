@@ -5,12 +5,29 @@ import Student from '../db/models/Student';
 
 export async function verifyAuthToken(request: NextRequest) {
   try {
+    // First try Authorization header
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token: string | null = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split('Bearer ')[1];
+    } else {
+      // Fallback to cookie
+      const cookieHeader = request.headers.get('cookie');
+      if (cookieHeader) {
+        const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+        token = cookies.authToken;
+      }
+    }
+    
+    if (!token) {
       return null;
     }
 
-    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await auth.verifyIdToken(token);
     return decodedToken;
   } catch (error) {
@@ -64,4 +81,9 @@ export async function requireCompany(request: NextRequest) {
 
 export function getUserRole(user: any): string {
   return user?.role || 'student';
+}
+
+// Alias for verifyAuth (used in API routes)
+export async function verifyAuth(request: NextRequest) {
+  return await getCurrentUser(request);
 }

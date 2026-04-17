@@ -20,7 +20,7 @@ export interface EligibilityInfo {
   matchScore: number;
 }
 
-export interface DriveWithEligibility extends Drive {
+export interface DriveWithEligibility extends Omit<Drive, 'eligibility'> {
   eligibility: EligibilityInfo;
   application: {
     _id: string;

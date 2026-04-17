@@ -1,103 +1,78 @@
 import { NextRequest } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
-import Drive from '@/lib/db/models/Drive';
 import Application from '@/lib/db/models/Application';
 import Student from '@/lib/db/models/Student';
-import Vault from '@/lib/db/models/Vault';
 import { requireAdmin } from '@/lib/utils/auth';
-import { successResponse, errorResponse, notFoundResponse } from '@/lib/utils/response';
+import { successResponse, errorResponse } from '@/lib/utils/response';
 
-// GET /api/drives/[id]/applications - Get all applications for a drive (Admin only)
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/drives/[id]/applications - Get applications for a drive
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    await requireAdmin();
+    const { id } = await params;
+    await requireAdmin(request);
     await connectDB();
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const department = searchParams.get('department');
-    const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
-    const drive = await Drive.findById(params.id);
-
-    if (!drive) {
-      return notFoundResponse('Drive not found');
-    }
-
-    const query: any = { driveId: params.id };
-
+    const query: any = { driveId: id };
     if (status) query.status = status;
 
+    const skip = (page - 1) * limit;
+
     const applications = await Application.find(query)
-      .populate('studentId')
+      .populate('studentId', 'name regNo email department cgpa graduationYear')
       .sort({ appliedAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    // Get vault data for each student
-    const studentIds = applications.map((app) => app.studentId);
-    const vaults = await Vault.find({ studentId: { $in: studentIds } }).lean();
-    const vaultMap = new Map(vaults.map((v) => [v.studentId.toString(), v]));
+    // Transform the data to include student info at the top level
+    const transformedApplications = applications.map(app => ({
+      ...app,
+      student: app.studentId,
+      studentId: (app.studentId as any)._id
+    }));
 
-    // Combine application, student, and vault data
-    let applicationsWithData = applications.map((app: any) => {
-      const vault = vaultMap.get(app.studentId._id.toString());
-      return {
-        _id: app._id,
-        status: app.status,
-        appliedAt: app.appliedAt,
-        currentRound: app.currentRound,
-        student: {
-          _id: app.studentId._id,
-          name: app.studentId.name,
-          email: app.studentId.email,
-          regNo: app.studentId.regNo,
-          department: app.studentId.department,
-          cgpa: app.studentId.cgpa,
-          phone: app.studentId.phone,
-        },
-        submittedData: app.submittedData,
-        vault: vault
-          ? {
-              resumeUrl: vault.resumes[0]?.url,
-              skills: vault.skills.map((s: any) => s.name),
-              github: vault.extraFields.github,
-              linkedin: vault.extraFields.linkedin,
-              portfolio: vault.extraFields.portfolio,
-            }
-          : null,
-      };
+    // Get statistics
+    const stats = await Application.aggregate([
+      { $match: { driveId: id } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const statsObj = {
+      total: 0,
+      applied: 0,
+      shortlisted: 0,
+      selected: 0,
+      rejected: 0
+    };
+
+    stats.forEach(stat => {
+      statsObj[stat._id as keyof typeof statsObj] = stat.count;
+      statsObj.total += stat.count;
     });
 
-    // Apply filters
-    if (department) {
-      applicationsWithData = applicationsWithData.filter((app) => app.student.department === department);
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase();
-      applicationsWithData = applicationsWithData.filter(
-        (app) =>
-          app.student.name.toLowerCase().includes(searchLower) ||
-          app.student.email.toLowerCase().includes(searchLower) ||
-          app.student.regNo.toLowerCase().includes(searchLower)
-      );
-    }
+    const total = await Application.countDocuments(query);
 
     return successResponse({
-      drive: {
-        _id: drive._id,
-        companyName: drive.companyName,
-        role: drive.role,
-        type: drive.type,
-      },
-      applications: applicationsWithData,
-      stats: {
-        total: applications.length,
-        applied: applications.filter((a) => a.status === 'applied').length,
-        underReview: applications.filter((a) => a.status === 'under-review').length,
-        shortlisted: applications.filter((a) => a.status === 'shortlisted').length,
-        selected: applications.filter((a) => a.status === 'selected').length,
-        rejected: applications.filter((a) => a.status === 'rejected').length,
+      applications: transformedApplications,
+      stats: statsObj,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error: any) {

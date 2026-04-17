@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       .sort({ appliedAt: -1 })
       .lean();
 
-    return successResponse(applications);
+    return successResponse({ applications });
   } catch (error: any) {
     return errorResponse(error.message, error.message === 'Unauthorized' ? 401 : 500);
   }

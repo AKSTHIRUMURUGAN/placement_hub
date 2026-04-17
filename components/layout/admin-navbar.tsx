@@ -14,7 +14,9 @@ import {
   Menu,
   X,
   Shield,
-  Building2
+  Building2,
+  ChevronDown,
+  User as UserIcon
 } from 'lucide-react';
 import { authManager } from '@/lib/utils/clientAuth';
 import toast from 'react-hot-toast';
@@ -29,6 +31,7 @@ export default function AdminNavbar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -94,6 +97,14 @@ export default function AdminNavbar() {
   }
 
   const RoleIcon = getRoleIcon(user.role);
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -105,16 +116,18 @@ export default function AdminNavbar() {
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">PH</span>
               </div>
-              <span className="text-xl font-semibold text-gray-900">PlacementHub</span>
+              <span className="text-xl font-semibold text-gray-900 hidden sm:inline">
+                PlacementHub
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:ml-8 md:flex md:space-x-1">
+            <div className="hidden md:ml-6 md:flex md:flex-1 md:items-center md:gap-1 md:overflow-x-auto md:whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                  className="shrink-0 flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <item.icon className="h-4 w-4 mr-2" />
                   {item.name}
@@ -125,27 +138,64 @@ export default function AdminNavbar() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {/* User Info */}
-            <div className="hidden md:flex md:items-center md:space-x-3">
-              <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg">
-                <RoleIcon className="h-4 w-4 text-blue-600" />
-                <div className="text-sm">
-                  <p className="font-medium text-gray-900">{user.name}</p>
-                  <p className="text-gray-500 text-xs">{getRoleDisplay(user.role)}</p>
+            {/* Profile Dropdown (like student navbar) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu((v) => !v)}
+                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                  <span className="text-blue-600 font-semibold text-sm">
+                    {getInitials(user.name)}
+                  </span>
                 </div>
-              </div>
-            </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                  <p className="text-xs text-gray-500">{getRoleDisplay(user.role)}</p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              </button>
 
-            {/* Sign Out Button */}
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              size="sm"
-              className="hidden md:flex items-center space-x-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
-            </Button>
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-60 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <RoleIcon className="h-4 w-4 text-blue-600" />
+                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    </div>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                  </div>
+
+                  <Link
+                    href="/admin/profile"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowProfileMenu(false)}
+                  >
+                    <UserIcon className="h-4 w-4 mr-3" />
+                    Profile
+                  </Link>
+
+                  <Link
+                    href="/admin/settings"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowProfileMenu(false)}
+                  >
+                    <Settings className="h-4 w-4 mr-3" />
+                    Settings
+                  </Link>
+
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4 mr-3" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Mobile menu button */}
             <button
@@ -195,6 +245,14 @@ export default function AdminNavbar() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Click outside to close profile dropdown */}
+      {showProfileMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProfileMenu(false)}
+        />
       )}
     </nav>
   );

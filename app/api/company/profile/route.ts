@@ -10,17 +10,38 @@ async function getOrCreateCompany(user: any) {
   });
 
   if (!company) {
-    company = await Company.create({
-      name: `${user.name || 'Company'} Organization`,
-      about: 'Company profile pending details update.',
-      industry: 'Technology',
-      hrEmail: user.email,
-      hrName: user.name || 'HR',
-      firebaseUid: user.firebaseUid,
-      isVerified: false,
-      isActive: true,
-      pastDrives: [],
-    });
+    const baseName = `${user.name || 'Company'} Organization`;
+    try {
+      company = await Company.create({
+        name: baseName,
+        about: 'Company profile pending details update.',
+        industry: 'Technology',
+        hrEmail: user.email,
+        hrName: user.name || 'HR',
+        firebaseUid: user.firebaseUid,
+        isVerified: false,
+        isActive: true,
+        pastDrives: [],
+      });
+    } catch (err: any) {
+      // If the default name is already taken, retry with a unique suffix
+      if (String(err?.code) === '11000') {
+        const suffix = (user.firebaseUid || user.email || Date.now().toString()).slice(-6);
+        company = await Company.create({
+          name: `${baseName} ${suffix}`,
+          about: 'Company profile pending details update.',
+          industry: 'Technology',
+          hrEmail: user.email,
+          hrName: user.name || 'HR',
+          firebaseUid: user.firebaseUid,
+          isVerified: false,
+          isActive: true,
+          pastDrives: [],
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   return company;
@@ -53,7 +74,14 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    await company.save();
+    try {
+      await company.save();
+    } catch (err: any) {
+      if (String(err?.code) === '11000') {
+        return errorResponse('Company name or email already exists', 400);
+      }
+      throw err;
+    }
     return successResponse(company, 'Company profile updated successfully');
   } catch (error: any) {
     return errorResponse(error.message, error.message.includes('Forbidden') ? 403 : 500);

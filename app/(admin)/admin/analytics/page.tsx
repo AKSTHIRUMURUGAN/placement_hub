@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AdminNav } from '@/components/admin/admin-nav';
 
 export default function AdminAnalyticsPage() {
   const [dashboard, setDashboard] = useState<any>(null);
@@ -45,7 +44,6 @@ export default function AdminAnalyticsPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-3xl font-bold text-slate-900">Analytics</h1>
         <p className="mb-6 text-slate-600">Placement trends, coverage, and unplaced pool.</p>
-        <AdminNav />
 
         <div className="mb-4">
           <Button onClick={fetchAnalytics} variant="outline">Refresh Analytics</Button>

@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AdminNav } from '@/components/admin/admin-nav';
 
 type AdminSettings = {
   instituteName: string;
@@ -49,7 +48,6 @@ export default function AdminSettingsPage() {
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-3xl font-bold text-slate-900">Admin Settings</h1>
         <p className="mb-6 text-slate-600">Configure defaults and notification preferences for placement operations.</p>
-        <AdminNav />
 
         <Card className="space-y-5 border-slate-200 p-6">
           <div className="space-y-2">

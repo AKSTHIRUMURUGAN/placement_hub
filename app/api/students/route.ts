@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     const query: any = {};
+    // This endpoint is used for student management screens.
+    // The underlying collection can contain other roles as well, so enforce students-only.
+    query.role = 'student';
 
     if (department) query.department = department;
     if (graduationYear) query.graduationYear = parseInt(graduationYear);

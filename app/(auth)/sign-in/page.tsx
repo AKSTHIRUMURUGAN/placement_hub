@@ -63,6 +63,9 @@ function SignInForm() {
         // Redirect based on role or redirect parameter
         if (data.data.user.role === 'admin' || data.data.user.role === 'placement-officer') {
           router.push('/admin/dashboard');
+        } else if (data.data.user.role === 'company') {
+          // Company users should land on the company portal by default
+          router.push(redirectPath.startsWith('/company') ? redirectPath : '/company/dashboard');
         } else if (data.data.user.role === 'student') {
           // Check if student needs profile setup
           if (data.data.user.regNo?.startsWith('TEMP_')) {

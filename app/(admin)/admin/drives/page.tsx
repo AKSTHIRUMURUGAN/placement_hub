@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, Edit } from 'lucide-react';
-import { AdminNav } from '@/components/admin/admin-nav';
 
 type Drive = {
   _id: string;
@@ -63,7 +62,6 @@ export default function AdminDrivesPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-3xl font-bold text-slate-900">Drive Management</h1>
         <p className="mb-6 text-slate-600">Track posted drives and applicant activity.</p>
-        <AdminNav />
 
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">

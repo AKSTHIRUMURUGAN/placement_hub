@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { CompanyNav } from '@/components/company/company-nav';
 
 export default function CompanyCandidatesPage() {
   const [drives, setDrives] = useState<any[]>([]);
@@ -60,7 +59,6 @@ export default function CompanyCandidatesPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-3xl font-bold text-slate-900">Candidate Pool</h1>
         <p className="mb-6 text-slate-600">Review applicants for your selected drive.</p>
-        <CompanyNav />
 
         {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 

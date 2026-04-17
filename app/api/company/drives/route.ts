@@ -8,17 +8,38 @@ import { successResponse, errorResponse } from '@/lib/utils/response';
 async function resolveCompany(user: any) {
   let company = await Company.findOne({ $or: [{ hrEmail: user.email }, { firebaseUid: user.firebaseUid }] });
   if (!company) {
-    company = await Company.create({
-      name: `${user.name || 'Company'} Organization`,
-      about: 'Company profile pending details update.',
-      industry: 'Technology',
-      hrEmail: user.email,
-      hrName: user.name || 'HR',
-      firebaseUid: user.firebaseUid,
-      isVerified: false,
-      isActive: true,
-      pastDrives: [],
-    });
+    const baseName = `${user.name || 'Company'} Organization`;
+    try {
+      company = await Company.create({
+        name: baseName,
+        about: 'Company profile pending details update.',
+        industry: 'Technology',
+        hrEmail: user.email,
+        hrName: user.name || 'HR',
+        firebaseUid: user.firebaseUid,
+        isVerified: false,
+        isActive: true,
+        pastDrives: [],
+      });
+    } catch (err: any) {
+      // If the default name is already taken, retry with a unique suffix
+      if (String(err?.code) === '11000') {
+        const suffix = (user.firebaseUid || user.email || Date.now().toString()).slice(-6);
+        company = await Company.create({
+          name: `${baseName} ${suffix}`,
+          about: 'Company profile pending details update.',
+          industry: 'Technology',
+          hrEmail: user.email,
+          hrName: user.name || 'HR',
+          firebaseUid: user.firebaseUid,
+          isVerified: false,
+          isActive: true,
+          pastDrives: [],
+        });
+      } else {
+        throw err;
+      }
+    }
   }
   return company;
 }

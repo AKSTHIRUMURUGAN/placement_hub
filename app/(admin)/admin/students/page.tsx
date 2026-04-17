@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AdminNav } from '@/components/admin/admin-nav';
 
 type Student = {
   _id: string;
@@ -37,7 +36,7 @@ export default function AdminStudentsPage() {
       const res = await fetch(`/api/students?${params.toString()}`, { cache: 'no-store' });
       const payload = await res.json();
       if (!res.ok || !payload.success) throw new Error(payload.message || 'Failed to load students');
-      setStudents(payload.data.students || []);
+      setStudents((payload.data.students || []).filter((s: Student) => s.role === 'student'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load students');
     } finally {
@@ -60,7 +59,6 @@ export default function AdminStudentsPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-3xl font-bold text-slate-900">Student Management</h1>
         <p className="mb-6 text-slate-600">View registered students and profile health.</p>
-        <AdminNav />
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Input

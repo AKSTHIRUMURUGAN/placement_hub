@@ -17,7 +17,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { authManager } from '@/lib/utils/clientAuth';
+import { authManager, makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -48,7 +48,7 @@ export function StudentNavbar({ user, avatarUrl }: StudentNavbarProps) {
     // Fetch notification count
     const fetchNotifications = async () => {
       try {
-        const response = await authManager.makeAuthenticatedRequest('/api/notifications');
+        const response = await makeAuthenticatedRequest('/api/notifications');
         const data = await response.json();
         if (data.success) {
           const unreadCount = data.data.notifications.filter((n: any) => !n.isRead).length;

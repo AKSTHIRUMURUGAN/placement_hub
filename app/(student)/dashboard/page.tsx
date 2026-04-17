@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Briefcase, Clock, CheckCircle2, XCircle, TrendingUp, FileText, Bell } from 'lucide-react';
 import Link from 'next/link';
-import { authManager } from '@/lib/utils/clientAuth';
+import { authManager, makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function StudentDashboard() {
         setLoading(true);
 
         // Fetch user data
-        const userRes = await authManager.makeAuthenticatedRequest('/api/students/me');
+        const userRes = await makeAuthenticatedRequest('/api/students/me');
         const userData = await userRes.json();
         
         if (userData.success) {
@@ -37,7 +37,7 @@ export default function StudentDashboard() {
         }
 
         // Fetch drives
-        const drivesRes = await authManager.makeAuthenticatedRequest('/api/drives?tab=eligible&limit=5');
+        const drivesRes = await makeAuthenticatedRequest('/api/drives?tab=eligible&limit=5');
         const drivesData = await drivesRes.json();
         console.log('Drives API response:', drivesData);
         if (drivesData.success) {
@@ -45,7 +45,7 @@ export default function StudentDashboard() {
         }
 
         // Fetch applications
-        const appsRes = await authManager.makeAuthenticatedRequest('/api/applications');
+        const appsRes = await makeAuthenticatedRequest('/api/applications');
         const appsData = await appsRes.json();
         console.log('Applications API response:', appsData);
         if (appsData.success) {
@@ -67,7 +67,7 @@ export default function StudentDashboard() {
         }
 
         // Fetch vault
-        const vaultRes = await authManager.makeAuthenticatedRequest('/api/vault');
+        const vaultRes = await makeAuthenticatedRequest('/api/vault');
         const vaultData = await vaultRes.json();
         if (vaultData.success) {
           setVault(vaultData.data);

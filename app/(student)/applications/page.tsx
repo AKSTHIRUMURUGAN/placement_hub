@@ -31,7 +31,7 @@ export default function ApplicationsPage() {
         const res = await fetch('/api/applications', { cache: 'no-store' });
         const payload = await res.json();
         if (!res.ok || !payload.success) throw new Error(payload.message || 'Failed to load applications');
-        setApplications(payload.data || []);
+        setApplications(payload.data?.applications || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load applications');
       } finally {
@@ -42,12 +42,15 @@ export default function ApplicationsPage() {
   }, []);
 
   const grouped = useMemo(
-    () => ({
-      all: applications,
-      active: applications.filter((a) => ['applied', 'under-review', 'shortlisted'].includes(a.status)),
-      shortlisted: applications.filter((a) => a.status === 'shortlisted'),
-      closed: applications.filter((a) => ['selected', 'rejected', 'withdrawn'].includes(a.status)),
-    }),
+    () => {
+      const appArray = Array.isArray(applications) ? applications : [];
+      return {
+        all: appArray,
+        active: appArray.filter((a) => ['applied', 'under-review', 'shortlisted'].includes(a.status)),
+        shortlisted: appArray.filter((a) => a.status === 'shortlisted'),
+        closed: appArray.filter((a) => ['selected', 'rejected', 'withdrawn'].includes(a.status)),
+      };
+    },
     [applications]
   );
 
@@ -125,7 +128,7 @@ export default function ApplicationsPage() {
             <div className="text-sm text-slate-600">Total Applied</div>
           </Card>
           <Card className="p-4 border border-slate-200">
-            <div className="text-2xl font-bold text-yellow-600">{applications.filter((a) => a.status === 'under-review').length}</div>
+            <div className="text-2xl font-bold text-yellow-600">{grouped.all.filter((a) => a.status === 'under-review').length}</div>
             <div className="text-sm text-slate-600">Under Review</div>
           </Card>
           <Card className="p-4 border border-slate-200">
@@ -133,7 +136,7 @@ export default function ApplicationsPage() {
             <div className="text-sm text-slate-600">Shortlisted</div>
           </Card>
           <Card className="p-4 border border-slate-200">
-            <div className="text-2xl font-bold text-blue-600">{applications.filter((a) => a.status === 'selected').length}</div>
+            <div className="text-2xl font-bold text-blue-600">{grouped.all.filter((a) => a.status === 'selected').length}</div>
             <div className="text-sm text-slate-600">Selected</div>
           </Card>
         </div>

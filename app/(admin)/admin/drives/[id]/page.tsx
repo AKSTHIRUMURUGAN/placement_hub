@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 
 export default function DriveDetailsPage() {
   const router = useRouter();
@@ -47,25 +48,25 @@ export default function DriveDetailsPage() {
     if (driveId) {
       fetchDriveDetails();
       fetchApplications();
-      fetchDocuments();
+      // Remove fetchDocuments() call since the endpoint doesn't exist
     }
   }, [driveId]);
 
   const fetchDriveDetails = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/drives/${driveId}`);
-      const data = await res.json();
+      const response = await makeAuthenticatedRequest(`/api/drives/${driveId}`);
+      const data = await response.json();
       
       if (data.success) {
         setDrive(data.data);
         setFormData(data.data);
       } else {
-        toast.error('Failed to load drive details');
+        toast.error(data.message || 'Failed to load drive details');
       }
     } catch (error) {
       console.error('Failed to fetch drive:', error);
-      toast.error('Failed to load drive details');
+      toast.error(`Failed to load drive details: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -73,8 +74,8 @@ export default function DriveDetailsPage() {
 
   const fetchApplications = async () => {
     try {
-      const res = await fetch(`/api/drives/${driveId}/applications`);
-      const data = await res.json();
+      const response = await makeAuthenticatedRequest(`/api/drives/${driveId}/applications`);
+      const data = await response.json();
       
       if (data.success) {
         setApplications(data.data.applications || []);
@@ -87,27 +88,28 @@ export default function DriveDetailsPage() {
 
   const fetchDocuments = async () => {
     try {
-      const res = await fetch(`/api/drives/${driveId}/documents`);
-      const data = await res.json();
+      // Documents endpoint not implemented yet
+      // const res = await fetch(`/api/drives/${driveId}/documents`);
+      // const data = await res.json();
       
-      if (data.success) {
-        setDocuments(data.data.documents || []);
-      }
+      // if (data.success) {
+      //   setDocuments(data.data.documents || []);
+      // }
+      setDocuments([]); // Set empty array for now
     } catch (error) {
       console.error('Failed to fetch documents:', error);
+      setDocuments([]);
     }
   };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      const res = await fetch(`/api/drives/${driveId}`, {
+      const response = await makeAuthenticatedRequest(`/api/drives/${driveId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-
-      const data = await res.json();
+      const data = await response.json();
       
       if (data.success) {
         setDrive(data.data);
@@ -118,7 +120,7 @@ export default function DriveDetailsPage() {
       }
     } catch (error) {
       console.error('Failed to update drive:', error);
-      toast.error('Failed to update drive');
+      toast.error(`Failed to update drive: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -132,7 +134,14 @@ export default function DriveDetailsPage() {
     try {
       const res = await fetch(`/api/drives/${driveId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('idToken')}`,
+        },
       });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
 
       const data = await res.json();
       
@@ -144,7 +153,7 @@ export default function DriveDetailsPage() {
       }
     } catch (error) {
       console.error('Failed to delete drive:', error);
-      toast.error('Failed to delete drive');
+      toast.error(`Failed to delete drive: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -152,9 +161,16 @@ export default function DriveDetailsPage() {
     try {
       const res = await fetch(`/api/drives/${driveId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('idToken')}`,
+        },
         body: JSON.stringify({ status: newStatus }),
       });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
 
       const data = await res.json();
       
@@ -166,7 +182,7 @@ export default function DriveDetailsPage() {
       }
     } catch (error) {
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status');
+      toast.error(`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

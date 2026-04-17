@@ -18,11 +18,19 @@ export default function AdminLayout({
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const firebaseUser = authManager.getCurrentUser();
+        // First check if we have authentication data
+        const isAuthenticated = await authManager.checkAuthStatus();
+        
+        if (!isAuthenticated) {
+          toast.error('Please sign in to access this page');
+          router.push('/sign-in?redirect=/admin/dashboard');
+          return;
+        }
+
         const userData = authManager.getCurrentUserData();
         
-        if (!firebaseUser || !userData) {
-          toast.error('Please sign in to access this page');
+        if (!userData) {
+          toast.error('User data not found. Please sign in again.');
           router.push('/sign-in?redirect=/admin/dashboard');
           return;
         }

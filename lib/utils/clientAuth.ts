@@ -1,231 +1,184 @@
-import { auth } from '@/lib/firebase/client';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import toast from 'react-hot-toast';
+// Client-side authentication utilities
 
-class AuthManager {
-  private static instance: AuthManager;
-  private currentUser: User | null = null;
-  private tokenRefreshTimer: NodeJS.Timeout | null = null;
-  private authInitialized: boolean = false;
-  private authPromise: Promise<User | null> | null = null;
-
-  private constructor() {
-    if (typeof window !== 'undefined') {
-      this.initializeAuth();
-    }
+export const getAuthToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  
+  // Try localStorage first
+  let token = localStorage.getItem('idToken');
+  if (token) return token;
+  
+  // Fallback to cookie
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+  
+  token = cookies.authToken;
+  
+  // If we found token in cookie but not in localStorage, sync them
+  if (token && !localStorage.getItem('idToken')) {
+    localStorage.setItem('idToken', token);
   }
+  
+  return token || null;
+};
 
-  public static getInstance(): AuthManager {
-    if (!AuthManager.instance) {
-      AuthManager.instance = new AuthManager();
-    }
-    return AuthManager.instance;
+export const getAuthHeaders = (isFormData = false): Record<string, string> => {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  
+  // Only set Content-Type for non-FormData requests
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
   }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
 
-  private initializeAuth() {
-    // Create a promise that resolves when auth is initialized
-    this.authPromise = new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        this.currentUser = user;
-        this.authInitialized = true;
-        
-        if (user) {
-          this.setupTokenRefresh();
-          // Store user info in localStorage for persistence
-          localStorage.setItem('authUser', JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName
-          }));
-        } else {
-          this.clearTokenRefresh();
-          localStorage.removeItem('idToken');
-          localStorage.removeItem('authUser');
-        }
-        
-        // Resolve the promise with the user
-        resolve(user);
-        unsubscribe(); // Only need this for initial auth check
+export const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
+  // Check if the body is FormData
+  const isFormData = options.body instanceof FormData;
+  const authHeaders = getAuthHeaders(isFormData);
+  
+  // Properly merge headers
+  const mergedHeaders: Record<string, string> = {
+    ...authHeaders,
+  };
+  
+  // Add any additional headers from options
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.forEach((value, key) => {
+        mergedHeaders[key] = value;
       });
-    });
-
-    // Continue listening for auth changes after initialization
-    onAuthStateChanged(auth, (user) => {
-      if (this.authInitialized) {
-        this.currentUser = user;
-        if (user) {
-          this.setupTokenRefresh();
-        } else {
-          this.clearTokenRefresh();
-          localStorage.removeItem('idToken');
-          localStorage.removeItem('authUser');
-        }
-      }
-    });
-  }
-
-  private setupTokenRefresh() {
-    // Clear existing timer
-    this.clearTokenRefresh();
-    
-    // Refresh token every 50 minutes (tokens expire in 1 hour)
-    this.tokenRefreshTimer = setInterval(async () => {
-      await this.refreshToken();
-    }, 50 * 60 * 1000);
-
-    // Also refresh token immediately
-    this.refreshToken();
-  }
-
-  private clearTokenRefresh() {
-    if (this.tokenRefreshTimer) {
-      clearInterval(this.tokenRefreshTimer);
-      this.tokenRefreshTimer = null;
+    } else if (Array.isArray(options.headers)) {
+      options.headers.forEach(([key, value]) => {
+        mergedHeaders[key] = value;
+      });
+    } else {
+      Object.assign(mergedHeaders, options.headers);
     }
   }
-
-  public async waitForAuthInitialization(): Promise<User | null> {
-    if (this.authInitialized) {
-      return this.currentUser;
-    }
-    return this.authPromise || Promise.resolve(null);
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: mergedHeaders,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
-
-  public async refreshToken(): Promise<string | null> {
-    try {
-      if (!this.currentUser) {
-        return null;
-      }
-
-      const idToken = await this.currentUser.getIdToken(true); // Force refresh
-      localStorage.setItem('idToken', idToken);
-      
-      // Set cookie for server-side access
-      document.cookie = `authToken=${idToken}; path=/; max-age=3600; secure; samesite=strict`;
-      
-      return idToken;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      toast.error('Session expired. Please sign in again.');
-      this.signOut();
-      return null;
-    }
+  
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error('Non-JSON response:', text);
+    throw new Error('Server returned non-JSON response');
   }
+  
+  // Return the response object with json method for backward compatibility
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+    json: () => response.json(),
+  };
+};
 
-  public async getValidToken(): Promise<string | null> {
-    try {
-      // Wait for auth to initialize if it hasn't yet
-      await this.waitForAuthInitialization();
-      
-      if (!this.currentUser) {
-        // Check if we have stored auth info (page reload case)
-        const storedUser = localStorage.getItem('authUser');
-        const storedToken = localStorage.getItem('idToken');
-        
-        if (storedUser && storedToken) {
-          // Try to use the stored token first
-          return storedToken;
-        }
-        return null;
-      }
+// Auth manager for token refresh and user management
+export const authManager = {
+  getCurrentUser() {
+    if (typeof window === 'undefined') return null;
+    const token = getAuthToken();
+    const userData = this.getCurrentUserData();
+    return (token && userData) ? { uid: userData.firebaseUid || 'current-user' } : null;
+  },
 
-      // Try to get current token first
-      const idToken = await this.currentUser.getIdToken(false);
-      localStorage.setItem('idToken', idToken);
-      
-      // Set cookie for server-side access
-      document.cookie = `authToken=${idToken}; path=/; max-age=3600; secure; samesite=strict`;
-      
-      return idToken;
-    } catch (error) {
-      // If current token is invalid, force refresh
-      console.log('Token invalid, refreshing...');
-      return await this.refreshToken();
-    }
-  }
-
-  public async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
-    const token = await this.getValidToken();
-    
-    if (!token) {
-      throw new Error('No valid authentication token');
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    // If we get 401, try refreshing token once
-    if (response.status === 401) {
-      const refreshedToken = await this.refreshToken();
-      if (refreshedToken) {
-        return fetch(url, {
-          ...options,
-          headers: {
-            ...options.headers,
-            'Authorization': `Bearer ${refreshedToken}`,
-          },
-        });
-      }
-    }
-
-    return response;
-  }
-
-  public signOut() {
-    this.clearTokenRefresh();
-    localStorage.removeItem('idToken');
-    localStorage.removeItem('authUser');
-    
-    // Clear auth cookie
-    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    
-    if (auth.currentUser) {
-      auth.signOut();
-    }
-    window.location.href = '/sign-in';
-  }
-
-  public getCurrentUser(): User | null {
-    return this.currentUser;
-  }
-
-  public getCurrentUserData(): any | null {
+  getCurrentUserData() {
+    if (typeof window === 'undefined') return null;
     try {
       const userData = localStorage.getItem('user');
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
-      console.error('Failed to get user data from localStorage:', error);
+      console.error('Error parsing user data:', error);
       return null;
     }
-  }
+  },
 
-  public isAuthenticated(): boolean {
-    // Check both current user and stored auth info
-    if (this.currentUser) {
+  async checkAuthStatus() {
+    const token = getAuthToken();
+    const userData = this.getCurrentUserData();
+    
+    // If we have both token and user data, we're authenticated
+    if (token && userData) {
       return true;
     }
     
-    // Check if we have stored auth info (for page reloads)
-    const storedUser = localStorage.getItem('authUser');
-    const storedToken = localStorage.getItem('idToken');
+    // If we have a token but no user data, try to fetch user data
+    if (token && !userData) {
+      try {
+        const response = await fetch('/api/students/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            localStorage.setItem('user', JSON.stringify(data.data.student));
+            return true;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    }
     
-    return !!(storedUser && storedToken);
-  }
+    return false;
+  },
 
-  public async checkAuthStatus(): Promise<boolean> {
+  isAuthenticated() {
+    const token = getAuthToken();
+    const userData = this.getCurrentUserData();
+    return !!(token && userData);
+  },
+
+  async refreshToken() {
+    // This would typically refresh the Firebase token
+    // For now, we'll just verify the current token is valid
+    const token = getAuthToken();
+    if (!token) return false;
+    
     try {
-      await this.waitForAuthInitialization();
-      return this.isAuthenticated();
+      // Verify token is still valid by making a test API call
+      const response = await fetch('/api/students/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.ok;
     } catch (error) {
+      console.error('Token refresh failed:', error);
       return false;
     }
-  }
-}
+  },
 
-export const authManager = AuthManager.getInstance();
-export default authManager;
+  signOut() {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('user');
+    localStorage.removeItem('idToken');
+    // Clear cookie with all possible paths and domains
+    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax';
+    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=strict';
+  }
+};

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { User, Mail, Phone, Calendar, GraduationCap, Save, Upload, FileText, Camera, MapPin, Users, CreditCard, Hash } from 'lucide-react';
-import { authManager } from '@/lib/utils/clientAuth';
+import { authManager, makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 import toast from 'react-hot-toast';
 
 interface VaultData {
@@ -72,7 +72,7 @@ export default function ProfilePage() {
         }
 
         // Fetch student profile
-        const res = await authManager.makeAuthenticatedRequest('/api/students/me', { 
+        const res = await makeAuthenticatedRequest('/api/students/me', { 
           cache: 'no-store'
         });
         const payload = await res.json();
@@ -97,7 +97,7 @@ export default function ProfilePage() {
         setInitialData(mapped);
 
         // Fetch vault data for extra fields
-        const vaultRes = await authManager.makeAuthenticatedRequest('/api/vault', { 
+        const vaultRes = await makeAuthenticatedRequest('/api/vault', { 
           cache: 'no-store'
         });
         const vaultPayload = await vaultRes.json();
@@ -131,7 +131,7 @@ export default function ProfilePage() {
       formData.append('file', avatarFile);
       formData.append('type', 'avatar');
 
-      const response = await authManager.makeAuthenticatedRequest('/api/vault/extra-fields', {
+      const response = await makeAuthenticatedRequest('/api/vault/extra-fields', {
         method: 'POST',
         body: formData,
       });
@@ -172,7 +172,7 @@ export default function ProfilePage() {
       formData.append('file', file);
       formData.append('type', type);
 
-      const response = await authManager.makeAuthenticatedRequest('/api/vault/extra-fields', {
+      const response = await makeAuthenticatedRequest('/api/vault/extra-fields', {
         method: 'POST',
         body: formData,
       });
@@ -207,7 +207,7 @@ export default function ProfilePage() {
     setSuccess('');
     try {
       // Update student profile
-      const res = await authManager.makeAuthenticatedRequest(`/api/students/${studentId}`, {
+      const res = await makeAuthenticatedRequest(`/api/students/${studentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -226,7 +226,7 @@ export default function ProfilePage() {
       if (!res.ok || !payload.success) throw new Error(payload.message || 'Failed to save profile');
 
       // Update vault extra fields
-      const vaultRes = await authManager.makeAuthenticatedRequest('/api/vault/extra-fields', {
+      const vaultRes = await makeAuthenticatedRequest('/api/vault/extra-fields', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

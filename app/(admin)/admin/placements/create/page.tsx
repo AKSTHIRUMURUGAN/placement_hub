@@ -4,22 +4,20 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Upload } from 'lucide-react';
 
 export default function CreatePlacementPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [students, setStudents] = useState<any[]>([]);
-  const [drives, setDrives] = useState<any[]>([]);
+  const [error, setError] = useState('');
   const [applications, setApplications] = useState<any[]>([]);
+  const [selectedApplication, setSelectedApplication] = useState<any>(null);
   
   const [formData, setFormData] = useState({
-    studentId: '',
-    driveId: '',
     applicationId: '',
-    companyName: '',
-    role: '',
     ctc: '',
     stipend: '',
     joiningDate: '',
@@ -28,83 +26,55 @@ export default function CreatePlacementPage() {
   });
 
   useEffect(() => {
-    fetchStudents();
-    fetchDrives();
+    fetchSelectedApplications();
   }, []);
 
-  useEffect(() => {
-    if (formData.studentId && formData.driveId) {
-      fetchApplications();
-    }
-  }, [formData.studentId, formData.driveId]);
-
-  const fetchStudents = async () => {
+  const fetchSelectedApplications = async () => {
     try {
-      const res = await fetch('/api/students?limit=1000');
-      const data = await res.json();
-      if (data.success) {
-        setStudents(data.data.students);
+      const res = await fetch('/api/applications?status=selected', { cache: 'no-store' });
+      const payload = await res.json();
+      if (payload.success) {
+        // Filter out applications that already have offers
+        const apps = payload.data?.applications || [];
+        setApplications(apps);
       }
-    } catch (error) {
-      console.error('Failed to fetch students:', error);
+    } catch (err) {
+      console.error('Failed to fetch applications:', err);
     }
   };
 
-  const fetchDrives = async () => {
-    try {
-      const res = await fetch('/api/drives?limit=1000');
-      const data = await res.json();
-      if (data.success) {
-        setDrives(data.data.drives);
-      }
-    } catch (error) {
-      console.error('Failed to fetch drives:', error);
-    }
-  };
-
-  const fetchApplications = async () => {
-    try {
-      const res = await fetch(
-        `/api/drives/${formData.driveId}/applications?status=selected`
-      );
-      const data = await res.json();
-      if (data.success) {
-        const studentApps = data.data.applications.filter(
-          (app: any) => app.student._id === formData.studentId
-        );
-        setApplications(studentApps);
-        if (studentApps.length === 1) {
-          setFormData((prev) => ({ ...prev, applicationId: studentApps[0]._id }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch applications:', error);
-    }
-  };
-
-  const handleDriveChange = (driveId: string) => {
-    const drive = drives.find((d) => d._id === driveId);
-    if (drive) {
-      setFormData((prev) => ({
-        ...prev,
-        driveId,
-        companyName: drive.companyName,
-        role: drive.role,
-        ctc: drive.ctc?.toString() || '',
-        stipend: drive.stipend?.toString() || '',
-      }));
-    }
+  const handleApplicationSelect = (appId: string) => {
+    const app = applications.find(a => a._id === appId);
+    setSelectedApplication(app);
+    setFormData(prev => ({
+      ...prev,
+      applicationId: appId,
+      ctc: app?.driveId?.ctc ? String(app.driveId.ctc) : '',
+      stipend: app?.driveId?.stipend ? String(app.driveId.stipend) : '',
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     try {
+      if (!selectedApplication) {
+        throw new Error('Please select an application');
+      }
+
       const payload = {
-        ...formData,
-        ctc: formData.ctc ? parseInt(formData.ctc) : undefined,
-        stipend: formData.stipend ? parseInt(formData.stipend) : undefined,
+        studentId: selectedApplication.studentId._id,
+        driveId: selectedApplication.driveId._id,
+        applicationId: formData.applicationId,
+        companyName: selectedApplication.driveId.companyName,
+        role: selectedApplication.driveId.role,
+        ctc: formData.ctc ? Number(formData.ctc) : undefined,
+        stipend: formData.stipend ? Number(formData.stipend) : undefined,
+        joiningDate: formData.joiningDate || undefined,
+        offerLetterUrl: formData.offerLetterUrl || undefined,
+        offerDate: formData.offerDate,
       };
 
       const res = await fetch('/api/placements', {
@@ -114,215 +84,194 @@ export default function CreatePlacementPage() {
       });
 
       const data = await res.json();
-
-      if (data.success) {
-        alert('Placement created successfully!');
-        router.push('/admin/placements');
-      } else {
-        alert(data.message || 'Failed to create placement');
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to create placement');
       }
-    } catch (error) {
-      console.error('Failed to create placement:', error);
-      alert('Failed to create placement');
+
+      router.push('/admin/placements');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create placement');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create Placement</h1>
-              <p className="text-sm text-gray-600 mt-1">Add a new placement offer</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <Button variant="outline" onClick={() => router.back()} className="mb-6">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Create Placement Offer</h1>
+          <p className="text-slate-600">Create a placement offer for a selected application</p>
         </div>
-      </header>
 
-      <div className="container mx-auto px-6 py-8 max-w-3xl">
-        <Card className="p-6 border border-gray-200">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Student Selection */}
-            <div>
-              <Label htmlFor="studentId">Student *</Label>
-              <select
-                id="studentId"
-                required
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.studentId}
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              >
-                <option value="">Select Student</option>
-                {students.map((student) => (
-                  <option key={student._id} value={student._id}>
-                    {student.name} - {student.regNo} ({student.department})
-                  </option>
-                ))}
-              </select>
-            </div>
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-            {/* Drive Selection */}
-            <div>
-              <Label htmlFor="driveId">Drive *</Label>
-              <select
-                id="driveId"
-                required
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.driveId}
-                onChange={(e) => handleDriveChange(e.target.value)}
-              >
-                <option value="">Select Drive</option>
-                {drives.map((drive) => (
-                  <option key={drive._id} value={drive._id}>
-                    {drive.companyName} - {drive.role}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Application Selection */}
-            {applications.length > 0 && (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Select Application */}
+          <Card className="p-6 border border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Application</h2>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="applicationId">Application *</Label>
-                <select
-                  id="applicationId"
-                  required
-                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <Label htmlFor="application">Selected Application *</Label>
+                <Select
                   value={formData.applicationId}
-                  onChange={(e) => setFormData({ ...formData, applicationId: e.target.value })}
+                  onValueChange={handleApplicationSelect}
                 >
-                  <option value="">Select Application</option>
-                  {applications.map((app: any) => (
-                    <option key={app._id} value={app._id}>
-                      Applied on {new Date(app.appliedAt).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an application" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {applications.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-slate-500">
+                        No selected applications found
+                      </div>
+                    ) : (
+                      applications.map((app) => (
+                        <SelectItem key={app._id} value={app._id}>
+                          {app.studentId?.name} - {app.driveId?.companyName} ({app.driveId?.role})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
 
-            {/* Company Name */}
-            <div>
-              <Label htmlFor="companyName">Company Name *</Label>
-              <input
-                id="companyName"
-                type="text"
-                required
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-              />
+              {selectedApplication && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-medium text-slate-900 mb-2">Application Details</h3>
+                  <div className="grid md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-600">Student</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.studentId?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">Reg No</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.studentId?.regNo}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">Company</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.driveId?.companyName}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">Role</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.driveId?.role}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">Department</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.studentId?.department}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">CGPA</p>
+                      <p className="font-medium text-slate-900">{selectedApplication.studentId?.cgpa}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+          </Card>
 
-            {/* Role */}
-            <div>
-              <Label htmlFor="role">Role *</Label>
-              <input
-                id="role"
-                type="text"
-                required
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              />
-            </div>
-
-            {/* CTC and Stipend */}
-            <div className="grid grid-cols-2 gap-4">
+          {/* Offer Details */}
+          <Card className="p-6 border border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Offer Details</h2>
+            <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="ctc">CTC (₹)</Label>
-                <input
+                <Label htmlFor="ctc">CTC (Annual in ₹)</Label>
+                <Input
                   id="ctc"
                   type="number"
-                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.ctc}
                   onChange={(e) => setFormData({ ...formData, ctc: e.target.value })}
-                  placeholder="e.g., 1200000"
+                  placeholder="e.g., 800000 for 8 LPA"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  {formData.ctc && `₹${(Number(formData.ctc) / 100000).toFixed(2)} LPA`}
+                </p>
               </div>
+
               <div>
-                <Label htmlFor="stipend">Stipend (₹)</Label>
-                <input
+                <Label htmlFor="stipend">Stipend (Monthly in ₹)</Label>
+                <Input
                   id="stipend"
                   type="number"
-                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.stipend}
                   onChange={(e) => setFormData({ ...formData, stipend: e.target.value })}
-                  placeholder="e.g., 15000"
+                  placeholder="e.g., 25000"
                 />
+                <p className="text-xs text-slate-500 mt-1">For internships only</p>
               </div>
-            </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="offerDate">Offer Date *</Label>
-                <input
+                <Input
                   id="offerDate"
                   type="date"
-                  required
-                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.offerDate}
                   onChange={(e) => setFormData({ ...formData, offerDate: e.target.value })}
+                  required
                 />
               </div>
+
               <div>
                 <Label htmlFor="joiningDate">Joining Date</Label>
-                <input
+                <Input
                   id="joiningDate"
                   type="date"
-                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.joiningDate}
                   onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                 />
               </div>
-            </div>
 
-            {/* Offer Letter URL */}
-            <div>
-              <Label htmlFor="offerLetterUrl">Offer Letter URL</Label>
-              <input
-                id="offerLetterUrl"
-                type="url"
-                className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.offerLetterUrl}
-                onChange={(e) => setFormData({ ...formData, offerLetterUrl: e.target.value })}
-                placeholder="https://..."
-              />
+              <div className="md:col-span-2">
+                <Label htmlFor="offerLetterUrl">Offer Letter URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="offerLetterUrl"
+                    type="url"
+                    value={formData.offerLetterUrl}
+                    onChange={(e) => setFormData({ ...formData, offerLetterUrl: e.target.value })}
+                    placeholder="https://example.com/offer-letter.pdf"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" size="sm">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Upload the offer letter document or provide a URL
+                </p>
+              </div>
             </div>
+          </Card>
 
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Creating...' : 'Create Placement'}
-              </Button>
-            </div>
-          </form>
-        </Card>
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={loading || !formData.applicationId}
+            >
+              {loading ? 'Creating...' : 'Create Placement Offer'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

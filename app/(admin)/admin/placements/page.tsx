@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -105,10 +106,12 @@ export default function PlacementsPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Export Report
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Placement
-              </Button>
+              <Link href="/admin/placements/create">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Placement
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

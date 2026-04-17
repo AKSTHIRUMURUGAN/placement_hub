@@ -50,8 +50,10 @@ function SignInForm() {
         localStorage.setItem('user', JSON.stringify(data.data.user));
         localStorage.setItem('idToken', idToken);
         
-        // Set auth cookie for server-side access
-        document.cookie = `authToken=${idToken}; path=/; max-age=3600; secure; samesite=strict`;
+        // Set auth cookie for server-side access with longer expiration
+        const isProduction = window.location.protocol === 'https:';
+        // Set cookie to expire in 7 days (604800 seconds)
+        document.cookie = `authToken=${idToken}; path=/; max-age=604800; ${isProduction ? 'secure; ' : ''}samesite=lax`;
 
         // Initialize auth manager and refresh token
         await authManager.refreshToken();

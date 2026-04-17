@@ -9,7 +9,7 @@ import { requireAuth } from '@/lib/utils/auth';
 import { successResponse, errorResponse } from '@/lib/utils/response';
 import { checkEligibility, getMissingFields } from '@/lib/eligibility/engine';
 
-// GET /api/applications - Get user applications
+// GET /api/applications - Get user applications (or all for admins)
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await requireAuth(request);
@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    const query: any = { studentId: currentUser._id };
+    // Admins and placement officers can view all applications
+    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'placement-officer';
+    
+    const query: any = isAdmin ? {} : { studentId: currentUser._id };
     if (status) query.status = status;
 
     const applications = await Application.find(query)
       .populate('driveId')
+      .populate('studentId')
       .sort({ appliedAt: -1 })
       .lean();
 

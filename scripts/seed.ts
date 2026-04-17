@@ -1,8 +1,15 @@
 // Load environment variables first
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Load environment variables first
-require('dotenv').config();
+// Verify MONGODB_URI is loaded
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI not found in environment variables');
+  console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO')));
+  process.exit(1);
+}
+
+console.log('✅ Environment variables loaded');
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -11,6 +18,7 @@ import Student from '../lib/db/models/Student';
 import Drive from '../lib/db/models/Drive';
 import Application from '../lib/db/models/Application';
 import Vault from '../lib/db/models/Vault';
+import Offer from '../lib/db/models/Offer';
 
 // Initialize Firebase Admin
 if (!getApps().length) {
@@ -343,6 +351,7 @@ async function seedDatabase() {
     await Drive.deleteMany({});
     await Application.deleteMany({});
     await Vault.deleteMany({});
+    await Offer.deleteMany({});
 
     // Create users in Firebase and database
     console.log('👥 Creating users...');
@@ -412,22 +421,42 @@ async function seedDatabase() {
     // Create sample applications
     console.log('📝 Creating sample applications...');
     const applicationStatuses = ['applied', 'shortlisted', 'rejected', 'selected'];
+    const createdApplications: any[] = [];
     
     for (let i = 0; i < createdStudents.length && i < createdDrives.length; i++) {
       const student = createdStudents[i];
       const drive = createdDrives[i % createdDrives.length];
       
       try {
+        const status = applicationStatuses[i % applicationStatuses.length];
         const application = await Application.create({
           studentId: student._id,
           driveId: drive._id,
-          status: applicationStatuses[i % applicationStatuses.length],
+          status,
           appliedAt: new Date(),
-          resumeUrl: 'https://example.com/resume.pdf',
-          coverLetter: `I am excited to apply for the ${drive.role} position at ${drive.companyName}. With my strong technical background and passion for technology, I believe I would be a great fit for this role.`,
+          submittedData: {
+            cgpa: student.cgpa,
+            department: student.department,
+            skills: ['JavaScript', 'React', 'Node.js'],
+            resume: 'https://example.com/resume.pdf',
+            extraFields: {},
+          },
+          timeline: [
+            {
+              status: 'applied',
+              date: new Date(),
+              note: 'Application submitted',
+            },
+            ...(status !== 'applied' ? [{
+              status,
+              date: new Date(),
+              note: `Application ${status}`,
+            }] : []),
+          ],
         });
         
-        console.log(`✅ Created application: ${student.name} -> ${drive.companyName}`);
+        createdApplications.push({ application, student, drive, status });
+        console.log(`✅ Created application: ${student.name} -> ${drive.companyName} (${status})`);
       } catch (error) {
         console.error(`❌ Error creating application:`, error);
       }
@@ -437,23 +466,69 @@ async function seedDatabase() {
     if (createdStudents.length > 1 && createdDrives.length > 1) {
       try {
         // Student 1 applies to multiple drives
-        await Application.create({
+        const app1 = await Application.create({
           studentId: createdStudents[0]._id,
           driveId: createdDrives[1]._id,
-          status: 'applied',
+          status: 'selected',
           appliedAt: new Date(),
-          resumeUrl: 'https://example.com/resume.pdf',
-          coverLetter: 'I am interested in this opportunity and believe my skills align well with your requirements.',
+          submittedData: {
+            cgpa: createdStudents[0].cgpa,
+            department: createdStudents[0].department,
+            skills: ['JavaScript', 'React', 'Node.js'],
+            resume: 'https://example.com/resume.pdf',
+            extraFields: {},
+          },
+          timeline: [
+            {
+              status: 'applied',
+              date: new Date(),
+              note: 'Application submitted',
+            },
+            {
+              status: 'selected',
+              date: new Date(),
+              note: 'Application selected',
+            },
+          ],
+        });
+        createdApplications.push({ 
+          application: app1, 
+          student: createdStudents[0], 
+          drive: createdDrives[1], 
+          status: 'selected' 
         });
 
         // Student 2 applies to multiple drives
-        await Application.create({
+        const app2 = await Application.create({
           studentId: createdStudents[1]._id,
           driveId: createdDrives[0]._id,
-          status: 'shortlisted',
+          status: 'selected',
           appliedAt: new Date(),
-          resumeUrl: 'https://example.com/resume.pdf',
-          coverLetter: 'I am passionate about software development and would love to contribute to your team.',
+          submittedData: {
+            cgpa: createdStudents[1].cgpa,
+            department: createdStudents[1].department,
+            skills: ['JavaScript', 'React', 'Node.js'],
+            resume: 'https://example.com/resume.pdf',
+            extraFields: {},
+          },
+          timeline: [
+            {
+              status: 'applied',
+              date: new Date(),
+              note: 'Application submitted',
+            },
+            {
+              status: 'selected',
+              date: new Date(),
+              note: 'Application selected',
+            },
+          ],
+        });
+        createdApplications.push({ 
+          application: app2, 
+          student: createdStudents[1], 
+          drive: createdDrives[0], 
+          status: 'selected' 
         });
 
         console.log('✅ Created additional cross-applications');
@@ -462,12 +537,41 @@ async function seedDatabase() {
       }
     }
 
+    // Create placement offers for selected applications
+    console.log('🎓 Creating placement offers...');
+    const selectedApplications = createdApplications.filter(item => item.status === 'selected');
+    let offersCreated = 0;
+    
+    for (const { application, student, drive } of selectedApplications) {
+      try {
+        const offer = await Offer.create({
+          studentId: student._id,
+          driveId: drive._id,
+          applicationId: application._id,
+          companyName: drive.companyName,
+          role: drive.role,
+          ctc: drive.ctc,
+          stipend: drive.stipend,
+          offerDate: new Date(),
+          joiningDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+          accepted: offersCreated % 2 === 0, // Accept every other offer
+          offerLetterUrl: 'https://example.com/offer-letter.pdf',
+        });
+        
+        offersCreated++;
+        console.log(`✅ Created offer: ${student.name} at ${drive.companyName} (${offer.accepted ? 'Accepted' : 'Pending'})`);
+      } catch (error) {
+        console.error(`❌ Error creating offer:`, error);
+      }
+    }
+
     console.log('\n🎉 Database seeding completed successfully!');
     console.log('\n📊 Summary:');
     console.log(`👥 Users created: ${sampleUsers.length}`);
     console.log(`🚗 Drives created: ${createdDrives.length}`);
     console.log(`📁 Vaults created: ${createdStudents.length}`);
-    console.log(`📝 Applications created: ${createdStudents.length + 2}`);
+    console.log(`📝 Applications created: ${createdApplications.length}`);
+    console.log(`🎓 Placement offers created: ${offersCreated}`);
     
     console.log('\n🔑 Login Credentials:');
     console.log('Admin: admin@placementhub.com / admin123');

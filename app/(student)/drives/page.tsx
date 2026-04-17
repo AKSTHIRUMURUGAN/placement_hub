@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Briefcase, Clock, MapPin, DollarSign, Search, Filter, CheckCircle2, ExternalLink } from 'lucide-react';
 
 type DriveItem = {
@@ -29,6 +31,17 @@ export default function DrivesPage() {
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [missingFieldsDialog, setMissingFieldsDialog] = useState<{
+    open: boolean;
+    driveId: string;
+    fields: string[];
+    values: Record<string, string>;
+  }>({
+    open: false,
+    driveId: '',
+    fields: [],
+    values: {},
+  });
 
   const fetchDrives = async () => {
     setLoading(true);
@@ -77,23 +90,55 @@ export default function DrivesPage() {
     return `${diffDays} days left`;
   };
 
-  const applyNow = async (driveId: string) => {
+  const applyNow = async (driveId: string, missingFields?: Record<string, string>) => {
     setSubmittingId(driveId);
     setError('');
     try {
+      const body: any = { driveId };
+      if (missingFields) {
+        body.missingFields = missingFields;
+      }
+
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driveId }),
+        body: JSON.stringify(body),
       });
       const payload = await res.json();
+      
+      // Check if there are missing fields
+      if (!res.ok && payload.errors?.missingFields) {
+        setMissingFieldsDialog({
+          open: true,
+          driveId,
+          fields: payload.errors.missingFields,
+          values: {},
+        });
+        setSubmittingId(null);
+        return;
+      }
+
       if (!res.ok || !payload.success) throw new Error(payload.message || 'Failed to apply');
+      
+      // Close dialog if it was open
+      setMissingFieldsDialog({ open: false, driveId: '', fields: [], values: {} });
       await fetchDrives();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to apply');
     } finally {
       setSubmittingId(null);
     }
+  };
+
+  const handleMissingFieldsSubmit = () => {
+    applyNow(missingFieldsDialog.driveId, missingFieldsDialog.values);
+  };
+
+  const updateMissingFieldValue = (field: string, value: string) => {
+    setMissingFieldsDialog((prev) => ({
+      ...prev,
+      values: { ...prev.values, [field]: value },
+    }));
   };
 
   return (
@@ -201,6 +246,67 @@ export default function DrivesPage() {
           ))}
           </div>
         )}
+
+        {/* Missing Fields Dialog */}
+        <Dialog open={missingFieldsDialog.open} onOpenChange={(open) => !open && setMissingFieldsDialog({ open: false, driveId: '', fields: [], values: {} })}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Complete Your Application</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-slate-600 mb-4">
+              Please provide the following required information to complete your application.
+            </p>
+            <div className="space-y-4 py-4">
+              {missingFieldsDialog.fields.includes('resume') && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800 mb-2">
+                    <strong>Resume Required:</strong> Please upload your resume in the Vault section before applying.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.location.href = '/vault';
+                    }}
+                  >
+                    Go to Vault
+                  </Button>
+                </div>
+              )}
+              {missingFieldsDialog.fields.filter(f => f !== 'resume').map((field) => (
+                <div key={field} className="space-y-2">
+                  <Label htmlFor={field} className="capitalize">
+                    {field.replace(/([A-Z])/g, ' $1').trim()}
+                  </Label>
+                  <Input
+                    id={field}
+                    value={missingFieldsDialog.values[field] || ''}
+                    onChange={(e) => updateMissingFieldValue(field, e.target.value)}
+                    placeholder={`Enter ${field.replace(/([A-Z])/g, ' $1').trim().toLowerCase()}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setMissingFieldsDialog({ open: false, driveId: '', fields: [], values: {} })}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMissingFieldsSubmit}
+                disabled={
+                  missingFieldsDialog.fields.includes('resume') ||
+                  missingFieldsDialog.fields.filter(f => f !== 'resume').some((f) => !missingFieldsDialog.values[f])
+                }
+              >
+                Submit Application
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

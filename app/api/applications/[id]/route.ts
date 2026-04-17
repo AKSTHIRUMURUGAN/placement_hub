@@ -15,14 +15,21 @@ export async function GET(
     const currentUser = await requireAuth(request);
     await connectDB();
 
-    const application = await Application.findById(id).populate('driveId').lean();
+    const application = await Application.findById(id)
+      .populate('driveId')
+      .populate('studentId')
+      .lean();
 
     if (!application) {
       return notFoundResponse('Application not found');
     }
 
+    // Admins and placement officers can view all applications
     // Students can only view their own applications
-    if (application.studentId.toString() !== currentUser._id.toString()) {
+    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'placement-officer';
+    const isOwner = application.studentId._id.toString() === currentUser._id.toString();
+
+    if (!isAdmin && !isOwner) {
       return errorResponse('Forbidden', 403);
     }
 

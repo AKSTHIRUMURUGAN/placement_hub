@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -18,6 +16,9 @@ if (!global.mongoose) {
 }
 
 async function connectDB() {
+  // Read MONGODB_URI dynamically instead of at module load time
+  const MONGODB_URI = process.env.MONGODB_URI;
+  
   // Return early if no MongoDB URI is available (build time)
   if (!MONGODB_URI) {
     throw new Error('MONGODB_URI environment variable is not defined');

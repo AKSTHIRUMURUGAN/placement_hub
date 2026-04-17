@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Award, Briefcase, Code, ExternalLink, FileText, Plus, RefreshCcw, Trash2, Upload } from 'lucide-react';
-import { authManager } from '@/lib/utils/clientAuth';
+import { authManager, makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 import toast from 'react-hot-toast';
 
 type ApiResponse<T> = { success: boolean; message?: string; data: T };
@@ -121,7 +121,7 @@ export default function VaultPage() {
       setLoading(true);
       setError('');
       
-      const response = await authManager.makeAuthenticatedRequest('/api/vault', { 
+      const response = await makeAuthenticatedRequest('/api/vault', { 
         cache: 'no-store'
       });
       const payload: ApiResponse<VaultData> = await response.json();
@@ -143,7 +143,7 @@ export default function VaultPage() {
   const updateWithApi = async (url: string, options: RequestInit) => {
     setSaving(true);
     try {
-      const response = await authManager.makeAuthenticatedRequest(url, options);
+      const response = await makeAuthenticatedRequest(url, options);
       const payload: ApiResponse<VaultData> = await response.json();
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || 'Request failed');

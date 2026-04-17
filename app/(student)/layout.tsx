@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { StudentNavbar } from '@/components/layout/student-navbar';
-import { authManager } from '@/lib/utils/clientAuth';
+import { authManager, makeAuthenticatedRequest } from '@/lib/utils/clientAuth';
 import toast from 'react-hot-toast';
 
 interface StudentLayoutProps {
@@ -31,7 +31,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         }
 
         // Fetch user data
-        const userRes = await authManager.makeAuthenticatedRequest('/api/students/me');
+        const userRes = await makeAuthenticatedRequest('/api/students/me');
         const userData = await userRes.json();
         
         if (userData.success) {
@@ -39,7 +39,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
           
           // Fetch vault data for avatar
           try {
-            const vaultRes = await authManager.makeAuthenticatedRequest('/api/vault');
+            const vaultRes = await makeAuthenticatedRequest('/api/vault');
             const vaultData = await vaultRes.json();
             if (vaultData.success && vaultData.data.extraFields?.avatarUrl) {
               setAvatarUrl(vaultData.data.extraFields.avatarUrl);

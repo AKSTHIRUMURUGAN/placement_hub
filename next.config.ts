@@ -12,9 +12,12 @@ const nextConfig: NextConfig = {
     return 'build-' + Date.now();
   },
   
-  // Environment variables with fallback for build time
+  // Environment variables with fallbacks for build time
   env: {
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/placeholder',
+    FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'placeholder-project',
+    FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || 'placeholder@placeholder.iam.gserviceaccount.com',
+    FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY || '-----BEGIN PRIVATE KEY-----\nplaceholder\n-----END PRIVATE KEY-----\n',
   },
 };
 

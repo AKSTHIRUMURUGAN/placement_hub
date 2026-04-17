@@ -23,6 +23,11 @@ export async function POST(req: NextRequest) {
       return errorResponse('Invalid role', 400);
     }
 
+    // Check if Firebase Admin is available
+    if (!auth) {
+      return errorResponse('Authentication service unavailable', 503);
+    }
+
     // Check if user already exists
     const existingUser = await Student.findOne({ email });
     if (existingUser) {

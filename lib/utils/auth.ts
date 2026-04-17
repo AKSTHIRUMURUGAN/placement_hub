@@ -5,6 +5,12 @@ import Student from '../db/models/Student';
 
 export async function verifyAuthToken(request: NextRequest) {
   try {
+    // Check if Firebase Admin is available (not during build time)
+    if (!auth) {
+      console.warn('Firebase Admin not available during build time');
+      return null;
+    }
+
     // First try Authorization header
     const authHeader = request.headers.get('authorization');
     let token: string | null = null;
@@ -37,12 +43,21 @@ export async function verifyAuthToken(request: NextRequest) {
 }
 
 export async function getCurrentUser(request: NextRequest) {
-  const decodedToken = await verifyAuthToken(request);
-  if (!decodedToken) return null;
+  try {
+    const decodedToken = await verifyAuthToken(request);
+    if (!decodedToken) return null;
 
-  await connectDB();
-  const student = await Student.findOne({ firebaseUid: decodedToken.uid });
-  return student;
+    await connectDB();
+    const student = await Student.findOne({ firebaseUid: decodedToken.uid });
+    return student;
+  } catch (error) {
+    // Handle build-time errors gracefully
+    if (error instanceof Error && error.message.includes('MongoDB URI not available')) {
+      console.warn('Database not available during build time');
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function requireAuth(request: NextRequest) {

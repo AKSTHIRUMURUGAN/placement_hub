@@ -274,6 +274,12 @@ const sampleDrives = [
 
 async function createFirebaseUser(userData: any) {
   try {
+    // Check if Firebase Admin is available
+    if (!auth) {
+      console.warn('Firebase Admin not available, skipping user creation');
+      return 'placeholder-uid-' + Date.now();
+    }
+
     const userRecord = await auth.createUser({
       email: userData.email,
       password: userData.password,
@@ -283,7 +289,7 @@ async function createFirebaseUser(userData: any) {
   } catch (error: any) {
     if (error.code === 'auth/email-already-exists') {
       // Get existing user
-      const existingUser = await auth.getUserByEmail(userData.email);
+      const existingUser = await auth!.getUserByEmail(userData.email);
       return existingUser.uid;
     }
     throw error;

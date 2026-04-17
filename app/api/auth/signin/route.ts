@@ -16,6 +16,11 @@ export async function POST(req: NextRequest) {
       return errorResponse('ID token is required', 400);
     }
 
+    // Check if Firebase Admin is available
+    if (!auth) {
+      return errorResponse('Authentication service unavailable', 503);
+    }
+
     // Verify Firebase ID token
     let decodedToken;
     try {

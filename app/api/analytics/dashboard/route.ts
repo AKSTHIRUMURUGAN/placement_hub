@@ -6,10 +6,15 @@ import Application from '@/lib/db/models/Application';
 import Offer from '@/lib/db/models/Offer';
 import { requireAdmin } from '@/lib/utils/auth';
 import { successResponse, errorResponse } from '@/lib/utils/response';
+import { handleBuildTimeError } from '@/lib/utils/build-check';
 
 // GET /api/analytics/dashboard - Get placement dashboard stats (Admin only)
 export async function GET(request: NextRequest) {
   try {
+    // Handle build-time gracefully
+    const buildTimeResponse = handleBuildTimeError('Analytics API not available during build');
+    if (buildTimeResponse) return buildTimeResponse;
+
     await requireAdmin(request);
     await connectDB();
 
@@ -68,6 +73,16 @@ export async function GET(request: NextRequest) {
       recentDrives,
     });
   } catch (error: any) {
+    // Handle MongoDB connection errors during build
+    if (error.message.includes('MongoDB URI not available')) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Database not available during build' 
+      }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     return errorResponse(error.message, error.message.includes('Forbidden') ? 403 : 500);
   }
 }
